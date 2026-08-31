@@ -619,7 +619,14 @@ test("the gate prints what selection matched on, not only what it chose", () => 
   const flat = readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8")
     .replace(/^\s*>\s?/gmu, "").replace(/\s+/gu, " ");
 
-  assert.match(flat, /matchedBy/u, "the gate screen must show HOW the profile was chosen");
+  // Anchored to the GATE screen's own block. The whole-file form passed with the gate
+  // screen's `matchedBy` deleted, because the review screen further down still had one —
+  // two screens, one assertion, and only one of them actually pinned.
+  const raw = readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8");
+  const gate = (raw.match(/```\nGATE CLOSED[\s\S]*?```/u) ?? [""])[0];
+  assert.ok(gate.length > 200, "the gate screen block must exist and be findable");
+  assert.match(gate, /^\s*profile:.*matchedBy/mu,
+    "the GATE screen's profile row must show HOW the profile was chosen");
   assert.match(flat, /projectUnchecked/u,
     "and must say when a declared project constraint could not be evaluated — a " +
       "silently unapplied constraint is indistinguishable from one that agreed");
@@ -758,13 +765,30 @@ test("the gate reviews the persisted setup and can change it", () => {
   assert.match(skill, /A change to scope invalidates what was verified against the old scope/iu,
     "a just-corrected branch has never been proved reachable");
 
-  // The review is only real if the values are on screen.
-  for (const field of ["matchedBy", "others on file", "subpaths", "knowledge"]) {
+  // The review is only real if the values are on THE SCREEN — so assert against the
+  // fenced screen block, not the whole file. A mutation proved the loose form vacuous:
+  // deleting the `subpaths:` row still passed, because "subpaths" also appears twice in
+  // the surrounding prose. Same weakness as the `/writes nothing/` assertion above.
+  const screen = (readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8")
+    .match(/```\nSETUP ON FILE[\s\S]*?```/u) ?? [""])[0];
+  assert.ok(screen.length > 200, "the review's screen block must exist and be findable");
+
+  // Matched as ROW LABELS — `^  <field>:` — not as substrings of the block. Two
+  // mutations were needed to get here: the whole-file form passed with the `subpaths:`
+  // row deleted (the word also appears in the prose), and so did the block-anchored form
+  // (it appears again inside the block, in the warnings example). A row is what "the
+  // screen shows this" actually means.
+  for (const label of ["others on file", "subpaths", "knowledge"]) {
     assert.match(
-      template, new RegExp(field.replace(/ /gu, " "), "iu"),
-      `the review screen must show ${field} — a value not on screen cannot be corrected`,
+      screen, new RegExp(`^\\s*${label}:`, "mu"),
+      `the review screen needs a '${label}:' ROW — a value not on screen cannot be corrected`,
     );
   }
+  // matchedBy is not its own row; it qualifies the profile row, which is the point of it.
+  assert.match(
+    screen, /^\s*profile:.*matchedBy/mu,
+    "the profile row must carry matchedBy — 'default-profile' there means nothing matched",
+  );
 });
 
 // ---- the gate's stated budget and its never-ask prose must agree --------------
@@ -969,7 +993,7 @@ test("the suspect packet carries every field prDetails requires", () => {
   // every reader, which is what `repo` was before this.
   const packet = readFileSync(join(ROOT, "skills/rca-build/templates/suspect-packet.md"), "utf8");
   for (const field of ["repo:", "pr:", "author:", "tag:", "link:"]) {
-    assert.match(packet, new RegExp(`^\\s*${field.replace(":", ":")}`, "mu"),
+    assert.match(packet, new RegExp(`^\\s*${field}`, "mu"),
       `the packet must carry ${field} — prDetails requires it and cannot be filled without it`);
   }
   assert.match(packet, /identity is\s+`?repo \+ number`?|repo \+ number/u,
