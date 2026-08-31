@@ -1,0 +1,24 @@
+{
+  "name": "browserstack-ai-tfa",
+  "owner": {
+    "name": "BrowserStack",
+    "url": "https://www.browserstack.com"
+  },
+  "description": "BrowserStack's test-failure-analysis plugins for Claude Code, Cursor and Codex.",
+  "plugins": [
+    {
+      "name": "tfa-rca",
+      "source": "./",
+      "description": "Point it at a red BrowserStack build: it reads every failed test, clusters them by failure signature, gathers evidence from the tools you already have, and lands a root cause per test naming the pull request most likely responsible. Requires a GitHub route; everything else degrades to a recorded gap.",
+      "category": "testing",
+      "keywords": [
+        "browserstack",
+        "test-failure-analysis",
+        "root-cause-analysis",
+        "flaky-tests",
+        "ci",
+        "observability"
+      ]
+    }
+  ]
+}
