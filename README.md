@@ -27,12 +27,34 @@ GitHub is the only hard requirement. Everything else is offered, never forced.
 
 ## Install
 
+In Claude Code:
+
+```
+/plugin marketplace add browserstack/ai-tfa-plugins
+/plugin install tfa-rca@browserstack-ai-tfa
+```
+
+Then set your credentials — the plugin needs them before it can read anything:
+
+```bash
+export BROWSERSTACK_USERNAME=...      # from your account settings
+export BROWSERSTACK_ACCESS_KEY=...
+```
+
+Ask Claude to **run the plugin's setup** and it will check both of these, confirm your
+GitHub route, and tell you exactly what is missing if anything is.
+
+<details>
+<summary>Installing from a clone instead (for development)</summary>
+
 ```bash
 git clone https://github.com/browserstack/ai-tfa-plugins.git
 cd ai-tfa-plugins
 cp .env.example .env        # add your BrowserStack username + access key
 claude --plugin-dir ./
 ```
+
+</details>
 
 Everything wires itself on load — the BrowserStack MCP server, the `rca-build`
 skill, and the analysis agent are all found by convention.
