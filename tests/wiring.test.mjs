@@ -619,7 +619,14 @@ test("the gate prints what selection matched on, not only what it chose", () => 
   const flat = readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8")
     .replace(/^\s*>\s?/gmu, "").replace(/\s+/gu, " ");
 
-  assert.match(flat, /matchedBy/u, "the gate screen must show HOW the profile was chosen");
+  // Anchored to the GATE screen's own block. The whole-file form passed with the gate
+  // screen's `matchedBy` deleted, because the review screen further down still had one —
+  // two screens, one assertion, and only one of them actually pinned.
+  const raw = readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8");
+  const gate = (raw.match(/```\nGATE CLOSED[\s\S]*?```/u) ?? [""])[0];
+  assert.ok(gate.length > 200, "the gate screen block must exist and be findable");
+  assert.match(gate, /^\s*profile:.*matchedBy/mu,
+    "the GATE screen's profile row must show HOW the profile was chosen");
   assert.match(flat, /projectUnchecked/u,
     "and must say when a declared project constraint could not be evaluated — a " +
       "silently unapplied constraint is indistinguishable from one that agreed");
@@ -758,13 +765,30 @@ test("the gate reviews the persisted setup and can change it", () => {
   assert.match(skill, /A change to scope invalidates what was verified against the old scope/iu,
     "a just-corrected branch has never been proved reachable");
 
-  // The review is only real if the values are on screen.
-  for (const field of ["matchedBy", "others on file", "subpaths", "knowledge"]) {
+  // The review is only real if the values are on THE SCREEN — so assert against the
+  // fenced screen block, not the whole file. A mutation proved the loose form vacuous:
+  // deleting the `subpaths:` row still passed, because "subpaths" also appears twice in
+  // the surrounding prose. Same weakness as the `/writes nothing/` assertion above.
+  const screen = (readFileSync(join(ROOT, "skills/rca-build/templates/gate-summary.md"), "utf8")
+    .match(/```\nSETUP ON FILE[\s\S]*?```/u) ?? [""])[0];
+  assert.ok(screen.length > 200, "the review's screen block must exist and be findable");
+
+  // Matched as ROW LABELS — `^  <field>:` — not as substrings of the block. Two
+  // mutations were needed to get here: the whole-file form passed with the `subpaths:`
+  // row deleted (the word also appears in the prose), and so did the block-anchored form
+  // (it appears again inside the block, in the warnings example). A row is what "the
+  // screen shows this" actually means.
+  for (const label of ["others on file", "subpaths", "knowledge"]) {
     assert.match(
-      template, new RegExp(field.replace(/ /gu, " "), "iu"),
-      `the review screen must show ${field} — a value not on screen cannot be corrected`,
+      screen, new RegExp(`^\\s*${label}:`, "mu"),
+      `the review screen needs a '${label}:' ROW — a value not on screen cannot be corrected`,
     );
   }
+  // matchedBy is not its own row; it qualifies the profile row, which is the point of it.
+  assert.match(
+    screen, /^\s*profile:.*matchedBy/mu,
+    "the profile row must carry matchedBy — 'default-profile' there means nothing matched",
+  );
 });
 
 // ---- the gate's stated budget and its never-ask prose must agree --------------
@@ -969,7 +993,7 @@ test("the suspect packet carries every field prDetails requires", () => {
   // every reader, which is what `repo` was before this.
   const packet = readFileSync(join(ROOT, "skills/rca-build/templates/suspect-packet.md"), "utf8");
   for (const field of ["repo:", "pr:", "author:", "tag:", "link:"]) {
-    assert.match(packet, new RegExp(`^\\s*${field.replace(":", ":")}`, "mu"),
+    assert.match(packet, new RegExp(`^\\s*${field}`, "mu"),
       `the packet must carry ${field} — prDetails requires it and cannot be filled without it`);
   }
   assert.match(packet, /identity is\s+`?repo \+ number`?|repo \+ number/u,
@@ -1078,4 +1102,54 @@ test("an explicit invocation value outranks build metadata", () => {
   );
   assert.match(tags, /`given` \| \*\*the customer said so\*\*/u, "given is the customer speaking");
   assert.match(tags, /build metadata included/u, "and metadata is detected");
+});
+
+// ---- an unauthenticated session is a sign-in problem, not a broken plugin ----
+//
+// The hosted MCP server authenticates by OAuth, so a session that has not signed in has
+// no `tfaRcaTurn`, `listTestIds` or `fetchBuildInsights` at all. Every step of the skill
+// then fails for one cause, and the symptom — tools missing, nothing works — reads as a
+// broken install. The instruction to ask for sign-in has to be the FIRST thing in the
+// skill, before the interview and before the context load, or it is found last.
+test("the skill asks for OAuth sign-in before doing anything else", () => {
+  // MUTATION: move the notice below Step 0, or drop it -> fails.
+  const src = readFileSync(join(ROOT, "skills/rca-build/SKILL.md"), "utf8");
+  // Blockquote markers stripped BEFORE collapsing whitespace: the notice is a `>` block,
+  // and `\s+ -> " "` alone leaves the wrapped marker mid-sentence ("Do not > start the
+  // interview"), so the match silently never fires. Third time this exact bug has bitten
+  // in this file — it is why the other guards here normalise the same way.
+  const flat = src.replace(/^\s*>\s?/gmu, "").replace(/\s+/gu, " ");
+
+  const notice = src.indexOf("if the `bstack` MCP tools are not in this session");
+  const firstStep = src.search(/^## /mu);
+  assert.ok(notice > 0, "the skill must tell the agent to check for the bstack tools");
+  assert.ok(
+    notice < firstStep,
+    "and it must come BEFORE the first section — an agent that reaches Step 0 has " +
+      "already started work that cannot succeed",
+  );
+  assert.match(flat, /Do not start the interview, do not read the context file/u,
+    "and it must say what NOT to do, or the agent proceeds and reports seven failures with one cause");
+
+  // The credential trap: on this route asking for a username or key is both useless and
+  // an invitation to paste a secret into a transcript.
+  assert.match(flat, /never ask for a username or access key/iu,
+    "OAuth means there is no username or key to ask for");
+
+  // The frontmatter description is what a client shows when choosing the skill.
+  const fm = src.split("---")[1] ?? "";
+  assert.match(fm.replace(/\s+/gu, " "), /authenticated \(OAuth\)/u,
+    "the description must say it needs an authenticated server");
+});
+
+test("SETUP.md gates its remaining steps on the sign-in", () => {
+  // MUTATION: drop the gate sentence -> fails. Without it the skill walks all four
+  // steps and reports each as broken, when one sign-in fixes every one of them.
+  const flat = readFileSync(join(ROOT, "SETUP.md"), "utf8").replace(/\s+/gu, " ");
+  assert.match(flat, /Step 1 gates everything/u,
+    "a failed sign-in must stop the list, not produce four failures with one cause");
+  assert.match(flat, /this is where you stop/u, "and step 1 itself must say so");
+  // Listed-but-unauthorised and not-listed-at-all have different fixes.
+  assert.match(flat, /wiring rather than sign-in/u,
+    "the two failure modes must be distinguished — guessing wastes a round trip");
 });

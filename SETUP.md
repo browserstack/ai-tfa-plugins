@@ -1,69 +1,68 @@
 ---
 name: setup
-description: One-time setup for the tfa-rca plugin — proves the bundled BrowserStack MCP server can authenticate and that a GitHub route exists, then hands off to /tfa-rca:rca-build. Run this on install, or whenever the plugin reports that it cannot reach BrowserStack. Does NOT configure repos, logs, metrics or CI — the rca-build interview owns those.
+description: One-time setup for the tfa-rca plugin — confirms the hosted BrowserStack MCP server is connected and that a GitHub route exists, then hands off to /tfa-rca:rca-build. Run this on install, or whenever the plugin reports that it cannot reach BrowserStack. Does NOT configure repos, logs, metrics or CI — the rca-build interview owns those.
 ---
 
 # Setting up tfa-rca
 
-**Scope.** This gets the two things the plugin cannot start without: the bundled
-`bstack` MCP server authenticating, and a GitHub route existing. Everything else —
+**Scope.** This gets the two things the plugin cannot start without: the hosted
+`bstack` MCP server connected, and a GitHub route existing. Everything else —
 which repos, which branches, where the logs are, what runs the services — is settled
 by `/tfa-rca:rca-build`'s own first-contact interview, which writes
 `.rca-context.json` in the user's project. **Do not ask about any of that here.**
 Asking twice reads as not having listened the first time.
 
+**Step 1 gates everything.** If the `bstack` tools are not in this session the user is
+not signed in, and nothing further can be checked or run — stop there and ask them to
+authorise, rather than working down the list reporting failures that all have one cause.
+
 Work through the steps in order and report each outcome in one line. Nothing here
 writes a file.
 
-## 1. Credentials for the bundled MCP server
+## 1. Connect to BrowserStack
 
-The `bstack` server needs `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY`.
-Check whether they are already present in the environment.
+The `bstack` server is BrowserStack's hosted MCP endpoint, and it authenticates by
+**OAuth** — the client runs the sign-in flow. There are no credentials to set, no
+`.env` to fill in, and nothing for you to record.
 
-If either is missing, tell the user exactly this and stop — do not proceed to step 2:
+Check whether the `bstack` tools are available in this session — `fetchBuildInsights`,
+`listTestIds`, `tfaRcaTurn`.
 
-> Add your BrowserStack credentials, then reload the plugin. Copy `.env.example` to
-> `.env` and fill in `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` — both are
-> on your [account settings](https://www.browserstack.com/accounts/profile/details)
-> page. Exporting them in your shell works too.
+- **They are there** — the connection is up. Move to step 2.
+- **They are not** — the user is not signed in, and this is where you stop. Ask for it
+  directly and do not continue to step 2:
 
-**Never write a credential value anywhere, and never echo one back.** If the user
-pastes a key into the conversation, say that the value is now in the transcript and
-should be revoked and reissued, then ask them to put the new one in `.env` and tell
-you only that it is set. You record that a variable is set; you never record what is
-in it.
+  > I can't reach BrowserStack yet. Authorise the `bstack` MCP server — run `/mcp` in
+  > Claude Code and approve the sign-in, or accept the prompt your client shows — then
+  > ask me again.
 
-`O11Y_TFA_RCA_BASE_URL` is optional and almost always unset — only a customer on a
-non-default tenant needs it. Do not ask for it.
+  If the server is not listed **at all** (as opposed to listed and unauthorised), that
+  is wiring rather than sign-in: **[INTEGRATION.md](INTEGRATION.md)** has the fix per
+  client. Say which of the two it is; they have different fixes and guessing wastes a
+  round trip.
 
-## 2. Confirm the server loaded — and say what is still unproven
+**Never ask for a username, an access key, or any token.** This route does not use
+them, so a request for one is both useless and a prompt to paste a secret into a
+transcript. If the user offers one anyway, say it is not needed and that they should
+treat any value they pasted as disclosed — revoke and reissue it.
 
-Two different things can be wrong, and they have different fixes, so separate them.
+## 2. Confirm it can actually read — and say what is still unproven
 
-**Did the server load?** Check whether the `bstack` tools — `fetchBuildInsights`,
-`listTestIds`, `tfaRcaTurn` — are available in this session. If they are not, the MCP
-server did not start, which is client wiring rather than credentials:
-**[INTEGRATION.md](INTEGRATION.md)** has the fix per client. Point at the section for
-the client actually in use.
-
-**Do the credentials work?** Every Observability read on this server needs a build to
-read, so there is no free call that proves authentication on its own. Handle it
-honestly, in one of two ways:
+Being connected is not the same as being able to read this account's builds. Every
+Observability read needs a build to read, so there is no free call that proves access
+on its own. Handle it honestly, in one of two ways:
 
 - **The user has a build id to hand** — use it, and you have real proof:
   `fetchBuildInsights(buildId=<id>)`. Returning the build's name and status means
-  credentials, entitlement and connectivity all work. An auth error means the values
-  are being read and rejected, so rotating or re-copying the access key is the fix,
-  not re-exporting them.
-- **They do not** — say plainly that the variables are set and that the first real
-  authenticated read happens on their first `/tfa-rca:rca-build` run, which fails
-  loudly and immediately if the credentials are wrong. Do not call an unrelated tool
-  to manufacture a probe: a Test Management read succeeding or failing says nothing
-  reliable about Observability access, and reporting it as proof would be worse than
-  reporting nothing.
+  the sign-in, the entitlement and the connection all work.
+- **They do not** — say plainly that the connection is up and that the first real read
+  happens on their first `/tfa-rca:rca-build` run, which fails loudly and immediately
+  if authorisation is wrong. Do not call an unrelated tool to manufacture a probe: a
+  Test Management read succeeding or failing says nothing reliable about Observability
+  access, and reporting it as proof would be worse than reporting nothing.
 
-**Never say "verified" for a check you did not run.** "Variables are set, not yet
-exercised" is the accurate sentence when no build was read, and it is the one to use.
+**Never say "verified" for a check you did not run.** "Connected, not yet exercised"
+is the accurate sentence when no build was read, and it is the one to use.
 
 ## 3. A GitHub route — the one hard requirement
 

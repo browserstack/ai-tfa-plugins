@@ -19,11 +19,14 @@ Works in **Claude Code**, **Cursor** and **Codex**.
 | You need | Why |
 |---|---|
 | A BrowserStack account with Test Observability | The build, its test logs, and the dashboard the report lands on |
-| `BROWSERSTACK_USERNAME` + `BROWSERSTACK_ACCESS_KEY` | From your [account settings](https://www.browserstack.com/accounts/profile/details) |
 | **GitHub access** — the `gh` CLI signed in, or a GitHub MCP server | Required. Without your code and its merged PRs there is no culprit PR to name, and that is the point of the run |
 | Anything else you use — logs, metrics, a cluster, CI | Optional. Each one you skip is recorded and shown in the report as evidence that was not available |
 
 GitHub is the only hard requirement. Everything else is offered, never forced.
+
+**There are no BrowserStack credentials to configure.** The plugin talks to
+BrowserStack's hosted MCP server and your client signs you in on first connect. Nothing
+is stored in this repo, and there is no `.env` to fill in.
 
 ## Install
 
@@ -34,15 +37,9 @@ In Claude Code:
 /plugin install tfa-rca@browserstack-ai-tfa
 ```
 
-Then set your credentials — the plugin needs them before it can read anything:
-
-```bash
-export BROWSERSTACK_USERNAME=...      # from your account settings
-export BROWSERSTACK_ACCESS_KEY=...
-```
-
-Ask Claude to **run the plugin's setup** and it will check both of these, confirm your
-GitHub route, and tell you exactly what is missing if anything is.
+The first time it connects, your client walks you through signing in to BrowserStack.
+That is the whole credential step. Ask Claude to **run the plugin's setup** if you want
+that and your GitHub route checked before you start.
 
 <details>
 <summary>Installing from a clone instead (for development)</summary>
@@ -50,7 +47,6 @@ GitHub route, and tell you exactly what is missing if anything is.
 ```bash
 git clone https://github.com/browserstack/ai-tfa-plugins.git
 cd ai-tfa-plugins
-cp .env.example .env        # add your BrowserStack username + access key
 claude --plugin-dir ./
 ```
 
