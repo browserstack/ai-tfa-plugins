@@ -1153,3 +1153,46 @@ test("SETUP.md gates its remaining steps on the sign-in", () => {
   assert.match(flat, /wiring rather than sign-in/u,
     "the two failure modes must be distinguished — guessing wastes a round trip");
 });
+
+// ---- the coordinator must not carry a tools allowlist ------------------------
+//
+// It had one, and it was inert for months because the YAML frontmatter failed to parse.
+// Fixing the parse ACTIVATED it, and a live run then died: the coordinator was granted
+// only `Bash` and `Read`. Three separate faults in one line —
+//
+//   tools: [Bash, Read, Grep, Glob, Task, mcp__*__tfaRcaTurn, mcp__*__getTfaTurnResult, mcp__github__*]
+//
+//   1. `mcp__*__tfaRcaTurn` did not match the real `mcp__plugin_tfa-rca_bstack__tfaRcaTurn`;
+//   2. `Task`/`Grep`/`Glob` were not granted either;
+//   3. `ToolSearch` was absent — and MCP tools are DEFERRED, so without it no schema can
+//      be loaded and `tfaRcaTurn` is unreachable even when its name is allowed.
+//
+// It had never been exercised, so none of that had ever been caught.
+//
+// The deeper reason not to fix the list: this plugin routes evidence to whatever tools
+// the CUSTOMER has — a log store, a cluster, a metrics surface, a forge. Those are
+// unknowable when the file is written, so an allowlist cannot express what a coordinator
+// legitimately needs. Inheriting the session's tools is not laxness here, it is the only
+// thing consistent with "generic over product and infra".
+test("the coordinator agent declares no tools allowlist", () => {
+  // MUTATION: add any `tools:` line to the frontmatter -> fails.
+  const src = readFileSync(join(ROOT, "agents/ai-tfa-coordinator.md"), "utf8");
+  const fm = src.split("---")[1] ?? "";
+  assert.doesNotMatch(
+    fm, /^tools:/mu,
+    "a coordinator restricted to a fixed tool list cannot reach a customer's connectors, " +
+      "and the last such list silently reduced it to Bash + Read",
+  );
+
+  // The frontmatter must still PARSE — an unparseable block drops every field silently,
+  // which is how the broken allowlist stayed hidden. Continuation lines of a multi-line
+  // scalar must be indented; at column 0 a strict parser sees a new document-level
+  // sequence and discards the lot.
+  for (const line of fm.split("\n")) {
+    assert.doesNotMatch(
+      line, /^- /u,
+      "a frontmatter continuation line at column 0 makes the whole block unparseable, " +
+        "and the runtime then drops every field but the filename-derived name",
+    );
+  }
+});

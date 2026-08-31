@@ -4,7 +4,6 @@ description: 'Per-test collaborative-RCA coordinator (autonomous — never promp
   - orchestrator: Agent(subagent_type="tfa-rca:ai-tfa-coordinator", prompt="RCA testRunId=39 — error: empty buildName rejected on POST /builds") → drives the loop, returns RCA_OUTPUT
   - sibling confirm: Agent(subagent_type="tfa-rca:ai-tfa-coordinator", prompt="RCA testRunId=40 — pre-seed: cause=<rep root cause>, suspect PR=#7421") → one-turn confirm against this test logs
   - user: "run collaborative RCA on test run 39" → single-test loop to RESOLVED/PENDING'
-tools: [Bash, Read, Grep, Glob, Task, mcp__*__tfaRcaTurn, mcp__*__getTfaTurnResult, mcp__github__*]
 model: sonnet
 ---
 
