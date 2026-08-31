@@ -1,9 +1,18 @@
 ---
 name: rca-build
-description: Autonomous batch RCA over every failed test of a BrowserStack build via tfaRcaTurn. First contact interviews you once and writes .rca-context.json; every run after that is one gate (context validation + resolved intake) then fully autonomous — clusters failures, routes evidence, triggers the dashboard report. Args: build id, optional PR URLs / repo hints.
+description: Autonomous batch RCA over every failed test of a BrowserStack build via tfaRcaTurn. Needs the hosted bstack MCP server authenticated (OAuth) — if its tools are absent, ask the user to sign in before anything else. First contact interviews you once and writes .rca-context.json; every run after that is one gate (context validation + resolved intake) then fully autonomous — clusters failures, routes evidence, triggers the dashboard report. Args: build id, optional PR URLs / repo hints.
 ---
 
 # rca-build — single-gate autonomous RCA over a build
+
+> **FIRST, before anything else: if the `bstack` MCP tools are not in this session, stop
+> and ask the user to sign in.** The server is BrowserStack's hosted endpoint and it
+> authenticates by OAuth, so an unauthenticated session has no `tfaRcaTurn`,
+> `listTestIds` or `fetchBuildInsights` — every step below is dead and the failure looks
+> like a broken plugin rather than a missing sign-in. Say plainly: *"I can't reach
+> BrowserStack yet — authorise the `bstack` MCP server (`/mcp`) and re-run."* Do not
+> start the interview, do not read the context file, and never ask for a username or
+> access key: this route does not use them.
 
 Drives the `tfaRcaTurn` collaborative loop over **every failed test** of a build
 and lands a per-test RCA in the TRA (Test Observability) dashboard. **TFA owns

@@ -18,14 +18,3 @@ url = "https://mcp.browserstack.com/mcp?isTfaPlugin=true"
 auth = "oauth"
 startup_timeout_sec = 15
 tool_timeout_sec = 120
-
-# ---------------------------------------------------------------------------
-# Local fallback: run the same server over stdio instead. Only needed if you cannot
-# reach the hosted endpoint — it costs you the credential-free setup above.
-# ---------------------------------------------------------------------------
-# [mcp_servers.bstack]
-# command = "npx"
-# args = ["-y", "@browserstack/mcp-server@1.3.1"]
-# env = { "BROWSERSTACK_USERNAME" = "your-username", "BROWSERSTACK_ACCESS_KEY" = "your-access-key" }
-# startup_timeout_sec = 15
-# tool_timeout_sec = 120

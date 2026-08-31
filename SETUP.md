@@ -12,6 +12,10 @@ by `/tfa-rca:rca-build`'s own first-contact interview, which writes
 `.rca-context.json` in the user's project. **Do not ask about any of that here.**
 Asking twice reads as not having listened the first time.
 
+**Step 1 gates everything.** If the `bstack` tools are not in this session the user is
+not signed in, and nothing further can be checked or run — stop there and ask them to
+authorise, rather than working down the list reporting failures that all have one cause.
+
 Work through the steps in order and report each outcome in one line. Nothing here
 writes a file.
 
@@ -25,10 +29,17 @@ Check whether the `bstack` tools are available in this session — `fetchBuildIn
 `listTestIds`, `tfaRcaTurn`.
 
 - **They are there** — the connection is up. Move to step 2.
-- **They are not** — the client has not connected yet. Tell the user to authorise the
-  BrowserStack MCP server when their client prompts, or to trigger it (`/mcp` in Claude
-  Code). If the server is not listed at all, that is wiring rather than sign-in:
-  **[INTEGRATION.md](INTEGRATION.md)** has the fix per client.
+- **They are not** — the user is not signed in, and this is where you stop. Ask for it
+  directly and do not continue to step 2:
+
+  > I can't reach BrowserStack yet. Authorise the `bstack` MCP server — run `/mcp` in
+  > Claude Code and approve the sign-in, or accept the prompt your client shows — then
+  > ask me again.
+
+  If the server is not listed **at all** (as opposed to listed and unauthorised), that
+  is wiring rather than sign-in: **[INTEGRATION.md](INTEGRATION.md)** has the fix per
+  client. Say which of the two it is; they have different fixes and guessing wastes a
+  round trip.
 
 **Never ask for a username, an access key, or any token.** This route does not use
 them, so a request for one is both useless and a prompt to paste a secret into a
