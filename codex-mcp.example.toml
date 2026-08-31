@@ -1,11 +1,31 @@
 # Codex MCP wiring for the bstack server.
-# Codex reads ~/.codex/config.toml (no per-project MCP file), so copy this block
-# into your global config — or use the `codex mcp add` one-liner in INTEGRATION.md.
-# Replace the env values with your BrowserStack credentials.
+# Codex reads ~/.codex/config.toml (no per-project MCP file), so copy this block into
+# your global config — or add it in one line:
+#
+#   codex mcp add bstack --url "https://mcp.browserstack.com/mcp?isTfaPlugin=true"
+#
+# Same hosted server the Claude Code and Cursor configs use (.mcp.json /
+# .cursor-mcp.json). No credentials live here: `auth = "oauth"` makes Codex run the
+# sign-in flow on first connect, and it is the documented fallback when no bearer token
+# or static header is configured.
+#
+# `isTfaPlugin=true` is required, not decorative — the server registers the TFA RCA
+# collaboration tools per-request only when it is present. Without it the plugin loads
+# and has nothing to call.
 
 [mcp_servers.bstack]
-command = "npx"
-args = ["-y", "@browserstack/mcp-server@1.2.27-beta.1"]
-env = { "BROWSERSTACK_USERNAME" = "your-username", "BROWSERSTACK_ACCESS_KEY" = "your-access-key", "O11Y_TFA_RCA_BASE_URL" = ""  # optional: set only to target a staging tenant (default is production) }
+url = "https://mcp.browserstack.com/mcp?isTfaPlugin=true"
+auth = "oauth"
 startup_timeout_sec = 15
 tool_timeout_sec = 120
+
+# ---------------------------------------------------------------------------
+# Local fallback: run the same server over stdio instead. Only needed if you cannot
+# reach the hosted endpoint — it costs you the credential-free setup above.
+# ---------------------------------------------------------------------------
+# [mcp_servers.bstack]
+# command = "npx"
+# args = ["-y", "@browserstack/mcp-server@1.3.1"]
+# env = { "BROWSERSTACK_USERNAME" = "your-username", "BROWSERSTACK_ACCESS_KEY" = "your-access-key" }
+# startup_timeout_sec = 15
+# tool_timeout_sec = 120

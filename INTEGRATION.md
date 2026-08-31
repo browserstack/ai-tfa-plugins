@@ -30,10 +30,12 @@ orchestration. On every host the run finishes the same way: glimpse table →
 ## Claude Code
 
 ```bash
-cp .env.example .env   # BROWSERSTACK_USERNAME / BROWSERSTACK_ACCESS_KEY
 claude --plugin-dir ./
-/rca-build <build-id>
+/tfa-rca:rca-build <build-id>
 ```
+
+No credentials to set: `.mcp.json` points at the hosted server and Claude Code runs
+the OAuth flow on first connect. `/mcp` shows the connection and re-triggers sign-in.
 
 `.claude-plugin/plugin.json` + root `.mcp.json` + `skills/` + `agents/` are
 auto-discovered. (No `commands/rca-build.md` on purpose — a command and skill
@@ -43,7 +45,7 @@ with the same name collide and the skill body fails to load.)
 
 The repo ships Cursor parity files mirroring `slack-mcp-plugin`:
 `.cursor-plugin/plugin.json` (points at `../.cursor-mcp.json` and `./skills/`)
-and `.cursor-mcp.json` (the stdio `bstack` server).
+and `.cursor-mcp.json` (the hosted `bstack` server over HTTP).
 
 **Wire the MCP server** — either:
 - copy `.cursor-mcp.json`'s `bstack` entry into your project `.cursor/mcp.json`
@@ -52,8 +54,8 @@ and `.cursor-mcp.json` (the stdio `bstack` server).
 - use an **Add to Cursor** deeplink:
   `cursor://anysphere.cursor-deeplink/mcp/install?name=bstack&config=<base64-of-the-bstack-entry-body>`
 
-Set `BROWSERSTACK_USERNAME` / `BROWSERSTACK_ACCESS_KEY` / `O11Y_TFA_RCA_BASE_URL`
-in your environment (or replace the `${…}` placeholders with literals).
+Nothing else to set — the entry carries only `type` and `url`, and Cursor performs the
+OAuth sign-in itself. There are no environment variables and no placeholders to fill.
 
 **Skill + agent discovery** — Cursor reads `.cursor/skills/` and `.cursor/agents/`
 (and also `.claude/agents/`). The simplest no-duplication setup is to symlink the
@@ -75,11 +77,13 @@ Codex reads the global `~/.codex/config.toml` (no per-project MCP file).
 into `~/.codex/config.toml`, or:
 
 ```bash
-codex mcp add bstack \
-  --env BROWSERSTACK_USERNAME=… --env BROWSERSTACK_ACCESS_KEY=… \
-  --env O11Y_TFA_RCA_BASE_URL=https://api-observability-rengg-tfa.bsstag.com \
-  -- npx -y @browserstack/mcp-server@1.2.27-beta.1
+codex mcp add bstack --url "https://mcp.browserstack.com/mcp?isTfaPlugin=true"
 ```
+
+Codex's own key for a streamable-HTTP server is `url`, and `auth = "oauth"` is its
+documented fallback when no bearer token or static header is configured — which is this
+case. No experimental flag is needed; `experimental_environment = "remote"` gates remote
+*stdio executors*, a different feature.
 
 **Skill + agent discovery** — Codex reads `.agents/skills/` (skills) and
 `.codex/agents/` (subagents). Symlink the shared trees:
@@ -94,9 +98,13 @@ Then run the `rca-build` skill; the coordinator + `tfaRcaTurn` loop are identica
 
 ## Notes
 
-- The `bstack` server is **stdio** (`npx @browserstack/mcp-server@1.2.27-beta.1`), not a remote
-  OAuth server — so the configs use `command`/`args`/`env`, unlike Slack's
-  `url`+`oauth`/`auth` shape.
+- The `bstack` server is **remote HTTP with OAuth** — `type`/`url` in Claude Code and
+  Cursor, `url`/`auth` in Codex. No `command`, no `args`, no `env`, and no credential in
+  any config file.
+- **`?isTfaPlugin=true` is load-bearing.** The server registers the TFA RCA
+  collaboration tools per-request only when that query parameter is present. Drop it and
+  the plugin loads with nothing to call, which looks like a broken install rather than a
+  missing flag. Query parameters in the `url` are supported by all three clients.
 - Env-var interpolation (`${VAR}`) is honored by Claude Code's `.mcp.json`; on
   Cursor/Codex, replace the placeholders with literals if your client doesn't
   expand them.
